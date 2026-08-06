@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Lunch QR Scanner</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- html5-qrcode Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-dark text-white">
+
+    <!-- Header Navigation -->
+    <nav class="navbar navbar-dark bg-secondary bg-opacity-25 border-bottom border-secondary py-2">
+        <div class="container d-flex justify-content-between align-items-center">
+            <span class="navbar-brand mb-0 h1 fw-bold text-success fs-5">
+                <i class="bi bi-qr-code-scan me-2"></i>Lunch Verifier
+            </span>
+            <a href="/admin" class="btn btn-outline-light btn-sm rounded-pill px-3">
+                <i class="bi bi-speedometer2 me-1"></i> Admin
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-3 max-width-mobile">
+
+        <!-- Scanner Card -->
+        <div class="card bg-secondary bg-opacity-10 border-secondary shadow-lg rounded-4 overflow-hidden mb-3">
+            <div class="card-header bg-dark bg-opacity-50 d-flex justify-content-between align-items-center py-2 px-3">
+                <span class="fw-semibold text-light small"><i class="bi bi-camera-fill me-1"></i> Live Camera</span>
+                <button id="switchCameraBtn" class="btn btn-sm btn-dark text-secondary border-secondary rounded-pill px-2 py-0">
+                    <i class="bi bi-camera-reversed me-1"></i> Flip Camera
+                </button>
+            </div>
+            
+            <!-- Camera View Box -->
+            <div class="position-relative">
+                <div id="reader" style="width: 100%; min-height: 250px;"></div>
+                <div id="scannerOverlay" class="scanner-overlay d-none">
+                    <div class="spinner-border text-light" role="status">
+                        <span class="visually-hidden">Checking QR...</span>
+                    </div>
+                    <div class="mt-2 fw-semibold text-light">Verifying Roll Number...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Result Card -->
+        <div id="resultCard" class="card result-card border-0 shadow-lg rounded-4 d-none">
+            <div class="card-body p-4 text-center">
+                <!-- Icon & Status Header -->
+                <div id="resultStatusIcon" class="display-1 mb-2"></div>
+                <h2 id="resultStatusText" class="fw-extrabold mb-3"></h2>
+                
+                <!-- Student Details Container -->
+                <div id="studentDetailsBox" class="bg-dark bg-opacity-25 rounded-3 p-3 text-start mb-3 border border-secondary border-opacity-25">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <span class="text-secondary small d-block">STUDENT NAME</span>
+                            <span id="studentName" class="fw-bold fs-5 text-white"></span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-secondary small d-block">ROLL NUMBER</span>
+                            <span id="studentRoll" class="fw-semibold text-light"></span>
+                        </div>
+                        <div class="col-6" id="usageTimeCol">
+                            <span class="text-secondary small d-block">USAGE TIME</span>
+                            <span id="usageTime" class="fw-semibold text-light"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button id="scanNextBtn" class="btn btn-light btn-lg w-100 fw-bold rounded-pill shadow-sm">
+                    <i class="bi bi-qr-code me-2"></i> Scan Next QR
+                </button>
+            </div>
+        </div>
+
+        <!-- Manual Roll Number Entry Accordion -->
+        <div class="accordion mt-4" id="manualEntryAccordion">
+            <div class="accordion-item bg-dark border-secondary rounded-3">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed bg-dark text-secondary border-0 rounded-3 py-2 small" type="button" data-bs-toggle="collapse" data-bs-target="#collapseManual">
+                        <i class="bi bi-keyboard me-2"></i> Manual Roll No Input (Damaged QR)
+                    </button>
+                </h2>
+                <div id="collapseManual" class="accordion-collapse collapse" data-bs-parent="#manualEntryAccordion">
+                    <div class="accordion-body bg-dark border-top border-secondary">
+                        <form id="manualTokenForm" class="d-flex gap-2">
+                            <input type="text" id="manualTokenInput" class="form-control bg-secondary bg-opacity-25 text-white border-secondary" placeholder="Enter Roll No (e.g. CB.EN.U4AID23001)" required>
+                            <button type="submit" class="btn btn-success px-4 fw-semibold">Submit</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom Scanner JS -->
+    <script src="/static/scanner.js"></script>
+</body>
+</html>
