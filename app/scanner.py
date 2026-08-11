@@ -1,9 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.models import Student
-
-IST = timezone(timedelta(hours=5, minutes=30))
+from app.models import Student, parse_and_format_ist, IST
 
 def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
     """
@@ -46,23 +44,13 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
         db.commit()
 
         if row:
-            checked_in_val = row.checked_in_at
-            if isinstance(checked_in_val, datetime):
-                dt = checked_in_val
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
-                else:
-                    dt = dt.astimezone(IST)
-                checked_in_time_str = dt.strftime("%d %b %Y, %I:%M:%S %p IST")
-            else:
-                checked_in_time_str = str(checked_in_val) if checked_in_val else now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
             return {
                 "status": "ALLOWED",
                 "message": "REGISTERED — ENTRY ALLOWED",
                 "student": {
                     "name": row.name,
                     "roll_number": row.roll_number,
-                    "checked_in_at": checked_in_time_str
+                    "checked_in_at": parse_and_format_ist(row.checked_in_at) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
                 }
             }
     else:
@@ -90,18 +78,6 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
 
     # If 0 rows updated, student was ALREADY CHECKED IN!
     db.refresh(student)
-    checked_in_val = student.checked_in_at
-    if isinstance(checked_in_val, datetime):
-        dt = checked_in_val
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
-        else:
-            dt = dt.astimezone(IST)
-        checked_in_time_str = dt.strftime("%d %b %Y, %I:%M:%S %p IST")
-    elif checked_in_val:
-        checked_in_time_str = str(checked_in_val)
-    else:
-        checked_in_time_str = "Previously checked in"
 
     return {
         "status": "ALREADY_CHECKED_IN",
@@ -109,6 +85,6 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
         "student": {
             "name": student.name,
             "roll_number": student.roll_number,
-            "checked_in_at": checked_in_time_str
+            "checked_in_at": parse_and_format_ist(student.checked_in_at) or "Previously checked in"
         }
     }
