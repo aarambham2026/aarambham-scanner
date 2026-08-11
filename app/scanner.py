@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.models import Student
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
     """
@@ -25,30 +27,35 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
             "roll_number": clean_roll
         }
 
-    # Step 2: CRITICAL ATOMIC UPDATE for Check-In
-    now = datetime.now()
+    # Step 2: CRITICAL ATOMIC UPDATE for Check-In (IST)
+    now_ist = datetime.now(IST)
     dialect = db.bind.dialect.name if db.bind else "postgresql"
 
     if dialect == "postgresql":
         raw_sql = text("""
             UPDATE registrations
             SET checked_in = TRUE,
-                checked_in_at = CURRENT_TIMESTAMP
+                checked_in_at = :now_ist
             WHERE roll_number = :roll_number
               AND registered = TRUE
               AND checked_in = FALSE
             RETURNING roll_number, name, checked_in_at;
         """)
-        result = db.execute(raw_sql, {"roll_number": clean_roll})
+        result = db.execute(raw_sql, {"roll_number": clean_roll, "now_ist": now_ist})
         row = result.fetchone()
         db.commit()
 
         if row:
             checked_in_val = row.checked_in_at
             if isinstance(checked_in_val, datetime):
-                checked_in_time_str = checked_in_val.strftime("%d %b %Y, %I:%M:%S %p")
+                dt = checked_in_val
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+                else:
+                    dt = dt.astimezone(IST)
+                checked_in_time_str = dt.strftime("%d %b %Y, %I:%M:%S %p IST")
             else:
-                checked_in_time_str = str(checked_in_val) if checked_in_val else now.strftime("%d %b %Y, %I:%M:%S %p")
+                checked_in_time_str = str(checked_in_val) if checked_in_val else now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
             return {
                 "status": "ALLOWED",
                 "message": "REGISTERED — ENTRY ALLOWED",
@@ -65,7 +72,7 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
             Student.registered == True,
             Student.checked_in == False
         ).update(
-            {Student.checked_in: True, Student.checked_in_at: now},
+            {Student.checked_in: True, Student.checked_in_at: now_ist},
             synchronize_session=False
         )
         db.commit()
@@ -77,7 +84,7 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
                 "student": {
                     "name": student.name,
                     "roll_number": student.roll_number,
-                    "checked_in_at": now.strftime("%d %b %Y, %I:%M:%S %p")
+                    "checked_in_at": now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
                 }
             }
 
@@ -85,7 +92,12 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
     db.refresh(student)
     checked_in_val = student.checked_in_at
     if isinstance(checked_in_val, datetime):
-        checked_in_time_str = checked_in_val.strftime("%d %b %Y, %I:%M:%S %p")
+        dt = checked_in_val
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+        else:
+            dt = dt.astimezone(IST)
+        checked_in_time_str = dt.strftime("%d %b %Y, %I:%M:%S %p IST")
     elif checked_in_val:
         checked_in_time_str = str(checked_in_val)
     else:

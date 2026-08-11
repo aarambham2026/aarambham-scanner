@@ -114,8 +114,20 @@ def generate_excel_export(db: Session) -> io.BytesIO:
         cell.font = header_font
         cell.alignment = center_align
 
+    from datetime import datetime, timezone, timedelta
+    IST = timezone(timedelta(hours=5, minutes=30))
+
     for s in students:
-        checked_in_time_str = s.checked_in_at.strftime("%Y-%m-%d %H:%M:%S") if s.checked_in_at else ""
+        if isinstance(s.checked_in_at, datetime):
+            dt = s.checked_in_at
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+            else:
+                dt = dt.astimezone(IST)
+            checked_in_time_str = dt.strftime("%Y-%m-%d %H:%M:%S IST")
+        else:
+            checked_in_time_str = ""
+
         row = [
             s.roll_number,
             s.name,

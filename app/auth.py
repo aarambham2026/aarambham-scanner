@@ -11,7 +11,7 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "aarambham2026")
 
 GUEST_USERNAME = os.getenv("GUEST_USERNAME", "guest")
-GUEST_PASSWORD = os.getenv("GUEST_PASSWORD", "guest")
+GUEST_PASSWORD = os.getenv("GUEST_PASSWORD", "aarambham_guest_2026")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "aarambham_secret_key_2026_super_secure")
 

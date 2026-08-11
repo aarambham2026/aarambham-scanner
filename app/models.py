@@ -1,6 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from app.database import Base
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 class Student(Base):
     __tablename__ = "registrations"
@@ -15,7 +17,12 @@ class Student(Base):
 
     def to_dict(self):
         if isinstance(self.checked_in_at, datetime):
-            checked_in_time_str = self.checked_in_at.strftime("%d %b %Y, %I:%M:%S %p")
+            dt = self.checked_in_at
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
+            else:
+                dt = dt.astimezone(IST)
+            checked_in_time_str = dt.strftime("%d %b %Y, %I:%M:%S %p IST")
         elif self.checked_in_at:
             checked_in_time_str = str(self.checked_in_at)
         else:
