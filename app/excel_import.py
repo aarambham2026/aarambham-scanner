@@ -7,7 +7,7 @@ from app.models import Student
 def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = False) -> dict:
     """
     Parses uploaded Excel file and upserts/replaces students in registrations table.
-    Expected columns: Roll No (or Roll Number), Name, Lunch Opted (YES/NO/True/False)
+    Expected columns: Roll No (or Roll Number), Name, Registered (optional, YES/NO/True/False)
     """
     if replace_all:
         db.query(Student).delete()
@@ -26,8 +26,8 @@ def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = F
             col_map["roll_number"] = idx
         elif h in ["name", "student name", "student_name"]:
             col_map["name"] = idx
-        elif h in ["lunch opted", "lunch_opted", "lunch", "opted"]:
-            col_map["lunch_opted"] = idx
+        elif h in ["registered", "registration", "is_registered", "lunch opted", "lunch_opted", "opted"]:
+            col_map["registered"] = idx
 
     required_cols = ["roll_number", "name"]
     missing = [c for c in required_cols if c not in col_map]
@@ -37,7 +37,7 @@ def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = F
             "message": f"Missing required columns in Excel: {', '.join(missing)}. Found: {headers}"
         }
 
-    has_lunch_opted = "lunch_opted" in col_map
+    has_registered_col = "registered" in col_map
 
     added = 0
     updated = 0
@@ -55,25 +55,25 @@ def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = F
                 errors += 1
                 continue
 
-            lunch_opted = True
-            if has_lunch_opted and row[col_map["lunch_opted"]] is not None:
-                val = str(row[col_map["lunch_opted"]]).strip().upper()
-                lunch_opted = val in ["YES", "Y", "TRUE", "1"]
+            registered = True
+            if has_registered_col and row[col_map["registered"]] is not None:
+                val = str(row[col_map["registered"]]).strip().upper()
+                registered = val in ["YES", "Y", "TRUE", "1", "REGISTERED"]
 
             existing = db.query(Student).filter(Student.roll_number == roll).first()
 
             if existing:
                 existing.name = name
                 existing.token = roll
-                existing.lunch_opted = lunch_opted
+                existing.registered = registered
                 updated += 1
             else:
                 student = Student(
                     roll_number=roll,
                     name=name,
                     token=roll,
-                    lunch_opted=lunch_opted,
-                    lunch_used=False
+                    registered=registered,
+                    checked_in=False
                 )
                 db.add(student)
                 added += 1
@@ -99,13 +99,13 @@ def generate_excel_export(db: Session) -> io.BytesIO:
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Student Lunch Status"
+    ws.title = "Aarambham Check-In Status"
 
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     center_align = Alignment(horizontal="center", vertical="center")
 
-    headers = ["Roll No", "Name", "Lunch Opted", "Lunch Used", "Usage Time"]
+    headers = ["Roll No", "Name", "Registration Status", "Check-In Status", "Check-In Time"]
     ws.append(headers)
 
     for col_idx in range(1, len(headers) + 1):
@@ -115,13 +115,13 @@ def generate_excel_export(db: Session) -> io.BytesIO:
         cell.alignment = center_align
 
     for s in students:
-        used_time_str = s.used_at.strftime("%Y-%m-%d %H:%M:%S") if s.used_at else ""
+        checked_in_time_str = s.checked_in_at.strftime("%Y-%m-%d %H:%M:%S") if s.checked_in_at else ""
         row = [
             s.roll_number,
             s.name,
-            "YES" if s.lunch_opted else "NO",
-            "YES" if s.lunch_used else "NO",
-            used_time_str
+            "REGISTERED" if s.registered else "NOT REGISTERED",
+            "CHECKED IN" if s.checked_in else "PENDING",
+            checked_in_time_str
         ]
         ws.append(row)
 

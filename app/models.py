@@ -9,23 +9,23 @@ class Student(Base):
     roll_number = Column(String(50), unique=True, index=True, nullable=False)
     name = Column(String(100), nullable=False)
     token = Column(String(100), nullable=True, default="")
-    lunch_opted = Column(Boolean, default=False, nullable=False)
-    lunch_used = Column(Boolean, default=False, nullable=False)
-    used_at = Column(DateTime(timezone=True), nullable=True)
+    registered = Column(Boolean, default=True, nullable=False)
+    checked_in = Column(Boolean, default=False, nullable=False)
+    checked_in_at = Column(DateTime(timezone=True), nullable=True)
 
     def to_dict(self):
-        if isinstance(self.used_at, datetime):
-            used_time_str = self.used_at.strftime("%d %b %Y, %I:%M:%S %p")
-        elif self.used_at:
-            used_time_str = str(self.used_at)
+        if isinstance(self.checked_in_at, datetime):
+            checked_in_time_str = self.checked_in_at.strftime("%d %b %Y, %I:%M:%S %p")
+        elif self.checked_in_at:
+            checked_in_time_str = str(self.checked_in_at)
         else:
-            used_time_str = None
+            checked_in_time_str = None
 
         return {
             "id": self.id,
             "roll_number": self.roll_number,
             "name": self.name,
-            "lunch_opted": self.lunch_opted,
-            "lunch_used": self.lunch_used,
-            "used_at": used_time_str
+            "registered": self.registered,
+            "checked_in": self.checked_in,
+            "checked_in_at": checked_in_time_str
         }

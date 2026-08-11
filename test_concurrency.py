@@ -32,7 +32,7 @@ def run_concurrency_test(num_phones=10):
         print(f"Phone {phone_id}: {status} => {res.get('message')}")
         if status == "ALLOWED":
             allowed_count += 1
-        elif status == "ALREADY_USED":
+        elif status in ["ALREADY_CHECKED_IN", "ALREADY_USED"]:
             already_used_count += 1
         else:
             errors += 1
@@ -40,11 +40,11 @@ def run_concurrency_test(num_phones=10):
     print("\n--- CONCURRENCY SUMMARY ---")
     print(f"Total Phones Scanned: {num_phones}")
     print(f"ALLOWED (Success):   {allowed_count}")
-    print(f"ALREADY USED (Deny): {already_used_count}")
+    print(f"ALREADY CHECKED IN:  {already_used_count}")
     print(f"Errors/Invalid:      {errors}")
 
     if allowed_count == 1 and already_used_count == (num_phones - 1):
-        print("\n✅ PASSED! Atomic PostgreSQL update successfully prevented race conditions!")
+        print("\n✅ PASSED! Atomic DB update successfully prevented race conditions!")
     else:
         print("\n❌ FAILED! Multiple scans allowed or anomaly detected.")
 

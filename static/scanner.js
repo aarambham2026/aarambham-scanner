@@ -125,30 +125,40 @@ function renderResult(data) {
         case 'ALLOWED':
             card.classList.add('status-allowed');
             statusIcon.innerHTML = '<i class="bi bi-check-circle-fill text-white"></i>';
-            statusText.textContent = "✅ ENTRY ALLOWED";
+            statusText.textContent = "✅ REGISTERED — ENTRY ALLOWED";
             nameEl.textContent = data.student.name;
             rollEl.textContent = data.student.roll_number;
-            timeEl.textContent = data.student.used_at || "Just now";
+            timeEl.textContent = data.student.checked_in_at || data.student.used_at || "Just now";
             playBeep('success');
             break;
 
+        case 'ALREADY_CHECKED_IN':
         case 'ALREADY_USED':
             card.classList.add('status-already-used');
-            statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-white"></i>';
-            statusText.textContent = "❌ ALREADY USED";
+            statusIcon.innerHTML = '<i class="bi bi-exclamation-circle-fill text-white"></i>';
+            statusText.textContent = "⚠️ ALREADY CHECKED IN";
             nameEl.textContent = data.student.name;
             rollEl.textContent = data.student.roll_number;
-            timeEl.textContent = data.student.used_at || "Previously used";
+            timeEl.textContent = data.student.checked_in_at || data.student.used_at || "Previously checked in";
             playBeep('error');
             break;
 
+        case 'NOT_REGISTERED':
         case 'NOT_ELIGIBLE':
             card.classList.add('status-not-eligible');
-            statusIcon.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-white"></i>';
-            statusText.textContent = "❌ NOT ELIGIBLE";
-            nameEl.textContent = data.student ? data.student.name : "N/A";
-            rollEl.textContent = data.student ? data.student.roll_number : "N/A";
-            timeCol.classList.add('d-none');
+            statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-white"></i>';
+            statusText.textContent = "❌ NOT REGISTERED";
+            if (data.student) {
+                nameEl.textContent = data.student.name;
+                rollEl.textContent = data.student.roll_number;
+                timeCol.classList.add('d-none');
+            } else if (data.roll_number) {
+                nameEl.textContent = "Unregistered Student";
+                rollEl.textContent = data.roll_number;
+                timeCol.classList.add('d-none');
+            } else {
+                detailsBox.classList.add('d-none');
+            }
             playBeep('error');
             break;
 

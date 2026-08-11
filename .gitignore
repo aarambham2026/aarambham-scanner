@@ -1,0 +1,15 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local SQLite databases & env
+*.db
+.env
+.venv/
+venv/
+ENV/
+
+# Scratch & temporary files
+scratch/
+*.log

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Aarambham Event System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-dark text-white d-flex align-items-center justify-content-center min-vh-100 py-5" style="background: radial-gradient(circle at top center, #451a03 0%, #0f172a 70%);">
+
+    <div class="container max-width-mobile px-3">
+
+        <!-- Logo & Branding -->
+        <div class="text-center mb-4">
+            <div class="display-4 onam-gold-text onam-title-shadow mb-1">
+                Aarambham
+            </div>
+            <p class="text-warning-subtle small fw-semibold">Onam Event Registration & Verification Portal</p>
+        </div>
+
+        <!-- Single Unified Onam Kasavu Login Card -->
+        <div class="card onam-kasavu-card shadow-lg rounded-4 overflow-hidden">
+            <div class="card-body p-4">
+
+                <!-- Alert Message -->
+                <div id="loginAlert" class="alert alert-danger d-none py-2 px-3 small rounded-3" role="alert"></div>
+
+                <!-- Unified Login Form -->
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label class="form-label small text-warning fw-semibold">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-warning text-warning"><i class="bi bi-person"></i></span>
+                            <input type="text" id="loginUsername" class="form-control bg-dark text-white border-warning" placeholder="Enter username (e.g. admin or guest)" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small text-warning fw-semibold">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-warning text-warning"><i class="bi bi-key"></i></span>
+                            <input type="password" id="loginPassword" class="form-control bg-dark text-white border-warning" placeholder="••••••••" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-onam-gold btn-lg w-100 rounded-pill shadow">
+                        Login <i class="bi bi-box-arrow-in-right ms-1"></i>
+                    </button>
+                </form>
+
+            </div>
+            <div class="card-footer bg-dark bg-opacity-75 border-top border-warning-subtle py-3 text-center">
+                <a href="/scanner" class="btn btn-link btn-sm text-warning text-decoration-none">
+                    <i class="bi bi-camera me-1"></i> Open Gate Scanner Page
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginAlert = document.getElementById('loginAlert');
+
+            function showAlert(msg) {
+                loginAlert.textContent = msg;
+                loginAlert.classList.remove('d-none');
+            }
+
+            function hideAlert() {
+                loginAlert.classList.add('d-none');
+            }
+
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAlert();
+
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+
+                try {
+                    const res = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        window.location.href = data.redirect || '/guest';
+                    } else {
+                        showAlert(data.detail || data.message || 'Invalid username or password.');
+                    }
+                } catch (e) {
+                    showAlert('Network error during login.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

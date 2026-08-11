@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DEFAULT_DB_URL = "postgresql://postgres:postgres@localhost:5432/student_lunch_db"
+DEFAULT_DB_URL = "postgresql://postgres:postgres@localhost:5432/aarambham_db"
 DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_URL)
 
 def create_db_engine(url):
@@ -30,10 +30,10 @@ except Exception as e:
     if "postgresql" in DATABASE_URL:
         print("\n" + "="*70, file=sys.stderr)
         print("⚠️ WARNING: Could not connect to PostgreSQL on localhost:5432.", file=sys.stderr)
-        print("👉 Falling back to local SQLite database ('sqlite:///./student_lunch.db') for instant testing.", file=sys.stderr)
+        print("👉 Falling back to local SQLite database ('sqlite:///./aarambham_event.db') for instant testing.", file=sys.stderr)
         print("👉 To use PostgreSQL: ensure PostgreSQL service is started and database is created.", file=sys.stderr)
         print("="*70 + "\n", file=sys.stderr)
-        DATABASE_URL = "sqlite:///./student_lunch.db"
+        DATABASE_URL = "sqlite:///./aarambham_event.db"
         engine = create_db_engine(DATABASE_URL)
     else:
         raise e

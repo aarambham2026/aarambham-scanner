@@ -4,10 +4,10 @@ from openpyxl.styles import Font, PatternFill, Alignment
 def generate_sample_excel(filename="sample_students.xlsx"):
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Students"
+    ws.title = "Aarambham Registrations"
 
     # Headers
-    headers = ["Roll No", "Name", "Lunch Opted"]
+    headers = ["Roll No", "Name", "Registered"]
     ws.append(headers)
 
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
@@ -40,9 +40,8 @@ def generate_sample_excel(filename="sample_students.xlsx"):
         for num in range(start_num, end_num + 1):
             roll = f"{prefix}{num:03d}"
             name = f"Student {desc} {num:03d}"
-            # ~80% opted YES, ~20% opted NO
-            opted = "YES" if (global_idx % 5 != 0) else "NO"
-            rows.append((roll, name, opted))
+            reg = "YES"
+            rows.append((roll, name, reg))
             global_idx += 1
 
     for r in rows:
@@ -53,7 +52,7 @@ def generate_sample_excel(filename="sample_students.xlsx"):
     ws.column_dimensions['C'].width = 15
 
     wb.save(filename)
-    print(f"Successfully generated {filename} with {len(rows)} student records matching roll number formats.")
+    print(f"Successfully generated {filename} with {len(rows)} Aarambham student registration records.")
 
 if __name__ == "__main__":
     generate_sample_excel()

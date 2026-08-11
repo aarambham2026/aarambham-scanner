@@ -1,28 +1,28 @@
-# Student Lunch QR Verification Web Application
+# Aarambham Scanner — Event Registration & Entry Verification System
 
-A lightweight, robust, high-performance web application for verifying student lunch eligibility using pre-existing QR codes at college events (~1,200 students, 5–10 concurrent mobile scanners).
+A lightweight, robust, high-performance web application for verifying student event registration and recording check-ins for the **Aarambham** event using QR codes / Roll Numbers (~1,200+ students, 5–10 concurrent mobile scanners).
 
 ---
 
 ## Technical Stack
 * **Backend**: Python 3.10+, FastAPI, SQLAlchemy, openpyxl, Uvicorn
-* **Database**: PostgreSQL (Atomic `UPDATE ... WHERE ... RETURNING` for zero race conditions)
+* **Database**: PostgreSQL (Atomic `UPDATE ... WHERE ... RETURNING` for zero race conditions across concurrent scanners) with SQLite fallback
 * **Frontend**: HTML5, Vanilla JavaScript, Bootstrap 5, `html5-qrcode` library
 
 ---
 
-## 1. PostgreSQL Setup
+## 1. Database Setup
 
-### Step A: Install PostgreSQL
-Download and install PostgreSQL from [postgresql.org](https://www.postgresql.org/download/) (or via `sudo apt install postgresql` on Linux / `brew install postgresql` on macOS).
+### Step A: Install PostgreSQL (Optional, SQLite is built-in fallback)
+Download and install PostgreSQL from [postgresql.org](https://www.postgresql.org/download/).
 
 ### Step B: Create Database & User
 Open `psql` shell or pgAdmin and run:
 
 ```sql
-CREATE DATABASE student_lunch_db;
+CREATE DATABASE aarambham_db;
 CREATE USER postgres WITH PASSWORD 'postgres';
-GRANT ALL PRIVILEGES ON DATABASE student_lunch_db TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE aarambham_db TO postgres;
 ```
 
 ---
@@ -32,7 +32,7 @@ GRANT ALL PRIVILEGES ON DATABASE student_lunch_db TO postgres;
 Navigate into the project directory and create a virtual environment:
 
 ```bash
-cd student-lunch-system
+cd student-system
 
 # Create virtual environment
 python -m venv venv
@@ -60,10 +60,10 @@ cp .env.example .env
 
 Ensure `DATABASE_URL` matches your PostgreSQL connection string:
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/student_lunch_db
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/aarambham_db
 ```
 
-*(Note: SQLite fallback is also supported out-of-the-box for quick zero-setup testing: `DATABASE_URL=sqlite:///./local_test.db`)*
+*(Note: SQLite fallback is supported out-of-the-box for quick zero-setup testing: `DATABASE_URL=sqlite:///./aarambham_event.db`)*
 
 ### Step B: Start FastAPI Server
 Run Uvicorn server bound to all local network interfaces (`0.0.0.0`):
@@ -74,105 +74,64 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-## 4. How to Upload the Excel File
+## 4. How to Upload Student Registrations (Excel)
 
 ### Option 1: Via Admin Web Dashboard
 1. Open `http://localhost:8000/admin` in your browser.
 2. Click **Upload Excel**.
-3. Select `sample_students.xlsx` (or generate a new one using `python generate_sample_data.py`).
-4. Click **Upload & Process**. All 1,200 records will be imported automatically into PostgreSQL.
+3. Select an `.xlsx` file containing **Roll No** and **Name** columns (e.g., `sample_students.xlsx`).
+4. Click **Upload & Process**. All student records will be imported automatically.
 
-### Option 2: Generate Sample Excel
-Generate sample data locally anytime:
+### Option 2: Generate Sample Excel Data
+Generate sample data matching official roll number formats:
 ```bash
 python generate_sample_data.py
 ```
 
 ---
 
-## 5. How to Test QR Scanning
+## 5. How to Test Aarambham QR Scanning
 
-### Method A: Scanning with Phone Camera
+### Method A: Scanning with Mobile/Web Camera
 1. Open `http://<YOUR_LOCAL_IP>:8000/scanner` on your mobile phone or desktop browser.
 2. Grant camera permissions.
-3. Point camera at a QR code containing a valid student token (e.g. `ABC123` for Student A, `XYZ456` for Student B).
+3. Point camera at a student QR code containing their Roll Number (e.g. `NC.AI.U4AID24001`).
 
-### Method B: Manual Input / Test Script
-1. Expand the **Manual Token Input** section on the scanner page.
-2. Enter token `ABC123` and click Submit.
-   - 1st scan: `✅ ENTRY ALLOWED`
-   - 2nd scan: `❌ ALREADY USED` (Shows student name & original timestamp)
-3. Enter token `XYZ456` (Student B who opted NO):
-   - Returns `❌ NOT ELIGIBLE`
-4. Enter token `UNKNOWN999`:
-   - Returns `❌ INVALID QR`
+### Method B: Manual Roll Number Input
+1. Expand **Manual Roll No Input** on the scanner page.
+2. Enter Roll Number `NC.AI.U4AID24001` and click **Check**:
+   - 1st scan: `🟢 REGISTERED — ENTRY ALLOWED`
+   - 2nd scan: `🟡 ALREADY CHECKED IN` (Displays student name & previous check-in timestamp)
+3. Enter an un-registered roll number (e.g., `INVALID.ROLL.999`):
+   - Returns `🔴 NOT REGISTERED`
 
 ### Method C: Run Concurrency Race Condition Test
-Simulate 10 phones scanning the exact same QR code simultaneously:
+Simulate 10 scanners checking in the exact same student simultaneously:
 ```bash
 python test_concurrency.py
 ```
-Expected output: Exactly 1 phone receives `✅ ALLOWED`, while 9 phones receive `❌ ALREADY USED`.
+Expected output: Exactly 1 scanner receives `🟢 ALLOWED`, while 9 scanners receive `🟡 ALREADY CHECKED IN`.
 
 ---
 
-## 6. How to Access Scanner from Mobile Phones
+## 6. Accessing Scanner from Mobile Devices
 
-Mobile browsers (Chrome / Safari) **require HTTPS** or a secure context to grant camera access.
+Mobile browsers require HTTPS or localhost for camera access.
 
-### Quick Local Testing via ngrok (Recommended for Local WiFi)
-1. Install [ngrok](https://ngrok.com/).
-2. Run ngrok tunnel on port 8000:
+### Quick Testing via ngrok
+1. Run ngrok on port 8000:
    ```bash
    ngrok http 8000
    ```
-3. Copy the secure HTTPS URL (e.g., `https://abc1234.ngrok-free.app/scanner`).
-4. Open this URL on all mobile phones.
+2. Open the secure HTTPS URL (e.g., `https://abc1234.ngrok-free.app/scanner`) on all scanner phones.
 
 ---
 
-## 7. How to Deploy Online (Production Setup)
+## 7. Production Deployment Setup
 
-### Option 1: Render / Railway / Fly.io (Free & Easy)
+### Render / Railway / Fly.io
 1. Push repository to GitHub.
-2. Provision a PostgreSQL instance on Railway / Render.
-3. Connect repository to Render / Railway:
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Add environment variable:
-   `DATABASE_URL=postgresql://user:password@host:5432/dbname`
-5. Deploy! Both SSL/HTTPS camera access and database persistence are handled automatically.
-
-### Option 2: Linux VPS (Ubuntu + Nginx + Certbot SSL + Systemd)
-1. **Systemd Service (`/etc/systemd/system/lunch-app.service`)**:
-   ```ini
-   [Unit]
-   Description=FastAPI Student Lunch Service
-   After=network.target
-
-   [Service]
-   User=ubuntu
-   WorkingDirectory=/home/ubuntu/student-lunch-system
-   ExecStart=/home/ubuntu/student-lunch-system/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
-
-   [Install]
-   WantedBy=multi-user.target
-   ```
-2. **Nginx Reverse Proxy with Free HTTPS**:
-   ```nginx
-   server {
-       server_name lunch.yourdomain.com;
-
-       location / {
-           proxy_pass http://127.0.0.1:8000;
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-       }
-   }
-   ```
-3. **Enable SSL**:
-   ```bash
-   sudo certbot --nginx -d lunch.yourdomain.com
-   ```
+2. Connect to Render / Railway with start command:
+   `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+3. Set `DATABASE_URL` environment variable.
+4. SSL/HTTPS for camera access works out of the box!
