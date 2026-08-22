@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import engine, get_db, Base, SessionLocal
-from app.models import Student
+from app.models import Student, ensure_db_schema_migrated
 from app.scanner import verify_and_mark_event_entry
 from app.excel_import import parse_and_import_excel, generate_excel_export
 from app.auth import (
@@ -19,8 +19,9 @@ from app.auth import (
     get_current_user_from_request
 )
 
-# Initialize DB tables on startup
+# Initialize DB tables & migration on startup
 Base.metadata.create_all(bind=engine)
+ensure_db_schema_migrated(engine)
 
 app = FastAPI(title="Aarambham Event Verification System", version="1.0.0")
 
@@ -147,18 +148,22 @@ def get_guest_stats(
     user: dict = Depends(get_current_user)
 ):
     """
-    Returns real-time event entry stats for Guest View.
+    Returns real-time event attendance stats for Guest View (Entry + Exit tracking).
     """
     total = db.query(Student).count()
     registered = db.query(Student).filter(Student.registered == True).count()
-    checked_in = db.query(Student).filter(Student.registered == True, Student.checked_in == True).count()
-    pending = registered - checked_in
+    inside = db.query(Student).filter(Student.registered == True, Student.entry_time != None, Student.exit_time == None).count()
+    exited = db.query(Student).filter(Student.registered == True, Student.entry_time != None, Student.exit_time != None).count()
+    not_entered = db.query(Student).filter(Student.registered == True, Student.entry_time == None).count()
 
     return {
         "total": total,
         "registered": registered,
-        "checked_in": checked_in,
-        "pending": pending
+        "inside": inside,
+        "exited": exited,
+        "not_entered": not_entered,
+        "checked_in": inside,
+        "pending": not_entered
     }
 
 
@@ -170,17 +175,19 @@ def get_guest_students(
     user: dict = Depends(get_current_user)
 ):
     """
-    Returns registered student records for Guest View with optional status filter.
-    status_filter values: 'all', 'registered', 'checked_in', 'pending'
+    Returns student records for Guest View with Entry/Exit status filtering.
+    status_filter values: 'all', 'registered', 'inside', 'exited', 'not_entered'
     """
     query = db.query(Student)
 
     if status_filter == "registered":
         query = query.filter(Student.registered == True)
-    elif status_filter == "checked_in":
-        query = query.filter(Student.registered == True, Student.checked_in == True)
-    elif status_filter == "pending":
-        query = query.filter(Student.registered == True, Student.checked_in == False)
+    elif status_filter in ["inside", "checked_in"]:
+        query = query.filter(Student.registered == True, Student.entry_time != None, Student.exit_time == None)
+    elif status_filter == "exited":
+        query = query.filter(Student.registered == True, Student.entry_time != None, Student.exit_time != None)
+    elif status_filter in ["not_entered", "pending"]:
+        query = query.filter(Student.registered == True, Student.entry_time == None)
 
     if search and search.strip():
         term = f"%{search.strip()}%"
@@ -188,7 +195,7 @@ def get_guest_students(
             (Student.roll_number.ilike(term)) | (Student.name.ilike(term))
         )
     
-    students = query.order_by(Student.checked_in.desc(), Student.roll_number.asc()).all()
+    students = query.order_by(Student.entry_time.desc().nullslast(), Student.roll_number.asc()).all()
     return [s.to_dict() for s in students]
 
 
@@ -200,18 +207,22 @@ def get_stats(
     admin: dict = Depends(get_current_admin)
 ):
     """
-    Returns real-time dashboard stats for Aarambham event administration.
+    Returns real-time dashboard stats for Aarambham event administration (Entry + Exit tracking).
     """
     total = db.query(Student).count()
     registered = db.query(Student).filter(Student.registered == True).count()
-    checked_in = db.query(Student).filter(Student.registered == True, Student.checked_in == True).count()
-    pending = registered - checked_in
+    inside = db.query(Student).filter(Student.registered == True, Student.entry_time != None, Student.exit_time == None).count()
+    exited = db.query(Student).filter(Student.registered == True, Student.entry_time != None, Student.exit_time != None).count()
+    not_entered = db.query(Student).filter(Student.registered == True, Student.entry_time == None).count()
 
     return {
         "total": total,
         "registered": registered,
-        "checked_in": checked_in,
-        "pending": pending
+        "inside": inside,
+        "exited": exited,
+        "not_entered": not_entered,
+        "checked_in": inside,
+        "pending": not_entered
     }
 
 
@@ -229,10 +240,12 @@ def get_students(
 
     if status_filter == "registered":
         query = query.filter(Student.registered == True)
-    elif status_filter == "checked_in":
-        query = query.filter(Student.registered == True, Student.checked_in == True)
-    elif status_filter == "pending":
-        query = query.filter(Student.registered == True, Student.checked_in == False)
+    elif status_filter in ["inside", "checked_in"]:
+        query = query.filter(Student.registered == True, Student.entry_time != None, Student.exit_time == None)
+    elif status_filter == "exited":
+        query = query.filter(Student.registered == True, Student.entry_time != None, Student.exit_time != None)
+    elif status_filter in ["not_entered", "pending"]:
+        query = query.filter(Student.registered == True, Student.entry_time == None)
 
     if search and search.strip():
         term = f"%{search.strip()}%"
@@ -286,17 +299,17 @@ def reset_student_checkin(
     admin: dict = Depends(get_current_admin)
 ):
     """
-    Resets an accidentally checked-in student back to pending check-in.
+    Resets entry and exit timestamps for an individual student back to NOT ENTERED.
     """
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found.")
     
-    student.checked_in = False
-    student.checked_in_at = None
+    student.entry_time = None
+    student.exit_time = None
     db.commit()
 
-    return {"success": True, "message": f"Reset check-in status for {student.name} ({student.roll_number})."}
+    return {"success": True, "message": f"Reset Entry & Exit status for {student.name} ({student.roll_number})."}
 
 
 @app.post("/api/admin/reset-all")
@@ -305,14 +318,16 @@ def reset_all_checkins(
     admin: dict = Depends(get_current_admin)
 ):
     """
-    Resets check-in status for ALL students back to pending check-in.
+    Resets entry and exit timestamps for ALL students back to NOT ENTERED.
     """
-    updated = db.query(Student).filter(Student.checked_in == True).update(
-        {Student.checked_in: False, Student.checked_in_at: None},
+    updated = db.query(Student).filter(
+        (Student.entry_time != None) | (Student.exit_time != None)
+    ).update(
+        {Student.entry_time: None, Student.exit_time: None},
         synchronize_session=False
     )
     db.commit()
-    return {"success": True, "message": f"Successfully reset check-in status for {updated} students."}
+    return {"success": True, "message": f"Successfully reset Entry & Exit status for {updated} students."}
 
 
 @app.get("/api/admin/export")
@@ -321,7 +336,7 @@ def export_excel(
     admin: dict = Depends(get_current_admin)
 ):
     """
-    Exports final Aarambham student registration & check-in data to downloadable Excel file.
+    Exports final Aarambham student registration & attendance data to downloadable Excel file.
     """
     excel_stream = generate_excel_export(db)
     filename = "aarambham_registration_report.xlsx"

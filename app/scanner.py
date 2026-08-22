@@ -5,86 +5,178 @@ from app.models import Student, parse_and_format_ist, IST
 
 def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
     """
-    Verifies scanned Roll Number for Aarambham event registration with atomic UPDATE to prevent race conditions across multiple scanners.
+    Verifies scanned Roll Number for Aarambham event entry and exit tracking with atomic UPDATE transitions.
 
-    Statuses returned:
-    - NOT_REGISTERED: Roll Number does not exist in DB or registered = False
-    - ALLOWED: Registered student checked in successfully
-    - ALREADY_CHECKED_IN: Student was already checked in previously
+    Workflow:
+    - First scan (entry_time IS NULL, exit_time IS NULL): Records entry_time -> status 'entry_recorded'
+    - Second scan (entry_time IS NOT NULL, exit_time IS NULL): Records exit_time -> status 'exit_recorded'
+    - Subsequent scan (entry_time IS NOT NULL, exit_time IS NOT NULL): Returns status 'already_exited' without overwriting
+    - Unregistered: Returns status 'not_registered'
     """
     clean_roll = roll_number.strip()
     if not clean_roll:
-        return {"status": "INVALID_QR", "message": "Empty QR code."}
+        return {
+            "status": "invalid_qr",
+            "message": "Empty QR code.",
+            "name": None,
+            "roll_no": "",
+            "roll_number": "",
+            "entry_time": None,
+            "exit_time": None,
+            "student": None
+        }
 
     # Step 1: Check if student exists by Roll Number
     student = db.query(Student).filter(Student.roll_number == clean_roll).first()
     if not student or not student.registered:
         return {
-            "status": "NOT_REGISTERED",
-            "message": f"Student not registered for Aarambham event. Roll Number '{clean_roll}' not found.",
-            "roll_number": clean_roll
+            "status": "not_registered",
+            "name": student.name if student else None,
+            "roll_no": clean_roll,
+            "roll_number": clean_roll,
+            "entry_time": None,
+            "exit_time": None,
+            "message": "Student not registered for Aarambham event.",
+            "student": student.to_dict() if student else None
         }
 
-    # Step 2: CRITICAL ATOMIC UPDATE for Check-In (IST)
     now_ist = datetime.now(IST)
-    dialect = db.bind.dialect.name if db.bind else "postgresql"
+    dialect = db.bind.dialect.name if db.bind else "sqlite"
 
+    # Step 2: ATOMIC ENTRY TRANSITION (entry_time IS NULL AND exit_time IS NULL)
     if dialect == "postgresql":
-        raw_sql = text("""
+        raw_sql_entry = text("""
             UPDATE registrations
-            SET checked_in = TRUE,
-                checked_in_at = :now_ist
+            SET entry_time = :now_ist
             WHERE roll_number = :roll_number
               AND registered = TRUE
-              AND checked_in = FALSE
-            RETURNING roll_number, name, checked_in_at;
+              AND entry_time IS NULL
+              AND exit_time IS NULL
+            RETURNING roll_number, name, entry_time, exit_time;
         """)
-        result = db.execute(raw_sql, {"roll_number": clean_roll, "now_ist": now_ist})
-        row = result.fetchone()
+        res = db.execute(raw_sql_entry, {"roll_number": clean_roll, "now_ist": now_ist})
+        row_entry = res.fetchone()
         db.commit()
 
-        if row:
+        if row_entry:
+            formatted_entry = parse_and_format_ist(row_entry.entry_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
             return {
-                "status": "ALLOWED",
-                "message": "REGISTERED — ENTRY ALLOWED",
+                "status": "entry_recorded",
+                "name": row_entry.name,
+                "roll_no": row_entry.roll_number,
+                "roll_number": row_entry.roll_number,
+                "entry_time": formatted_entry,
+                "exit_time": None,
+                "message": "ENTRY RECORDED",
                 "student": {
-                    "name": row.name,
-                    "roll_number": row.roll_number,
-                    "checked_in_at": parse_and_format_ist(row.checked_in_at) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+                    "roll_number": row_entry.roll_number,
+                    "roll_no": row_entry.roll_number,
+                    "name": row_entry.name,
+                    "entry_time": formatted_entry,
+                    "exit_time": None,
+                    "status": "INSIDE"
                 }
             }
     else:
-        # Cross-database atomic update
-        updated_rows = db.query(Student).filter(
+        updated_entry = db.query(Student).filter(
             Student.roll_number == clean_roll,
             Student.registered == True,
-            Student.checked_in == False
+            Student.entry_time == None,
+            Student.exit_time == None
         ).update(
-            {Student.checked_in: True, Student.checked_in_at: now_ist},
+            {Student.entry_time: now_ist},
             synchronize_session=False
         )
         db.commit()
 
-        if updated_rows > 0:
+        if updated_entry > 0:
+            db.refresh(student)
+            formatted_entry = parse_and_format_ist(student.entry_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
             return {
-                "status": "ALLOWED",
-                "message": "REGISTERED — ENTRY ALLOWED",
-                "student": {
-                    "name": student.name,
-                    "roll_number": student.roll_number,
-                    "checked_in_at": now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
-                }
+                "status": "entry_recorded",
+                "name": student.name,
+                "roll_no": student.roll_number,
+                "roll_number": student.roll_number,
+                "entry_time": formatted_entry,
+                "exit_time": None,
+                "message": "ENTRY RECORDED",
+                "student": student.to_dict()
             }
 
-    # If 0 rows updated, student was ALREADY CHECKED IN!
+    # Step 3: ATOMIC EXIT TRANSITION (entry_time IS NOT NULL AND exit_time IS NULL)
+    if dialect == "postgresql":
+        raw_sql_exit = text("""
+            UPDATE registrations
+            SET exit_time = :now_ist
+            WHERE roll_number = :roll_number
+              AND registered = TRUE
+              AND entry_time IS NOT NULL
+              AND exit_time IS NULL
+            RETURNING roll_number, name, entry_time, exit_time;
+        """)
+        res = db.execute(raw_sql_exit, {"roll_number": clean_roll, "now_ist": now_ist})
+        row_exit = res.fetchone()
+        db.commit()
+
+        if row_exit:
+            formatted_entry = parse_and_format_ist(row_exit.entry_time)
+            formatted_exit = parse_and_format_ist(row_exit.exit_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+            return {
+                "status": "exit_recorded",
+                "name": row_exit.name,
+                "roll_no": row_exit.roll_number,
+                "roll_number": row_exit.roll_number,
+                "entry_time": formatted_entry,
+                "exit_time": formatted_exit,
+                "message": "EXIT RECORDED",
+                "student": {
+                    "roll_number": row_exit.roll_number,
+                    "roll_no": row_exit.roll_number,
+                    "name": row_exit.name,
+                    "entry_time": formatted_entry,
+                    "exit_time": formatted_exit,
+                    "status": "EXITED"
+                }
+            }
+    else:
+        updated_exit = db.query(Student).filter(
+            Student.roll_number == clean_roll,
+            Student.registered == True,
+            Student.entry_time != None,
+            Student.exit_time == None
+        ).update(
+            {Student.exit_time: now_ist},
+            synchronize_session=False
+        )
+        db.commit()
+
+        if updated_exit > 0:
+            db.refresh(student)
+            formatted_entry = parse_and_format_ist(student.entry_time)
+            formatted_exit = parse_and_format_ist(student.exit_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+            return {
+                "status": "exit_recorded",
+                "name": student.name,
+                "roll_no": student.roll_number,
+                "roll_number": student.roll_number,
+                "entry_time": formatted_entry,
+                "exit_time": formatted_exit,
+                "message": "EXIT RECORDED",
+                "student": student.to_dict()
+            }
+
+    # Step 4: ALREADY EXITED (entry_time IS NOT NULL AND exit_time IS NOT NULL)
     db.refresh(student)
+    formatted_entry = parse_and_format_ist(student.entry_time)
+    formatted_exit = parse_and_format_ist(student.exit_time)
 
     return {
-        "status": "ALREADY_CHECKED_IN",
-        "message": "Student already checked in.",
-        "student": {
-            "name": student.name,
-            "roll_number": student.roll_number,
-            "checked_in_at": parse_and_format_ist(student.checked_in_at) or "Previously checked in"
-        }
+        "status": "already_exited",
+        "name": student.name,
+        "roll_no": student.roll_number,
+        "roll_number": student.roll_number,
+        "entry_time": formatted_entry,
+        "exit_time": formatted_exit,
+        "message": "ALREADY EXITED",
+        "student": student.to_dict()
     }

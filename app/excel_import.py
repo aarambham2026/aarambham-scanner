@@ -73,7 +73,8 @@ def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = F
                     name=name,
                     token=roll,
                     registered=registered,
-                    checked_in=False
+                    entry_time=None,
+                    exit_time=None
                 )
                 db.add(student)
                 added += 1
@@ -93,19 +94,19 @@ def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = F
 
 def generate_excel_export(db: Session) -> io.BytesIO:
     """
-    Exports all student registrations to an Excel workbook (.xlsx).
+    Exports all student registrations and attendance data to an Excel workbook (.xlsx).
     """
     students = db.query(Student).order_by(Student.roll_number.asc()).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Aarambham Check-In Status"
+    ws.title = "Aarambham Attendance Report"
 
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
     center_align = Alignment(horizontal="center", vertical="center")
 
-    headers = ["Roll No", "Name", "Registration Status", "Check-In Status", "Check-In Time"]
+    headers = ["Roll No", "Name", "Registration Status", "Entry Time", "Exit Time", "Status"]
     ws.append(headers)
 
     for col_idx in range(1, len(headers) + 1):
@@ -114,26 +115,18 @@ def generate_excel_export(db: Session) -> io.BytesIO:
         cell.font = header_font
         cell.alignment = center_align
 
-    from datetime import datetime, timezone, timedelta
-    IST = timezone(timedelta(hours=5, minutes=30))
+    from app.models import parse_and_format_ist
 
     for s in students:
-        if isinstance(s.checked_in_at, datetime):
-            dt = s.checked_in_at
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc).astimezone(IST)
-            else:
-                dt = dt.astimezone(IST)
-            checked_in_time_str = dt.strftime("%Y-%m-%d %H:%M:%S IST")
-        else:
-            checked_in_time_str = ""
-
+        entry_str = parse_and_format_ist(s.entry_time) or "—"
+        exit_str = parse_and_format_ist(s.exit_time) or "—"
         row = [
             s.roll_number,
             s.name,
             "REGISTERED" if s.registered else "NOT REGISTERED",
-            "CHECKED IN" if s.checked_in else "PENDING",
-            checked_in_time_str
+            entry_str,
+            exit_str,
+            s.status
         ]
         ws.append(row)
 

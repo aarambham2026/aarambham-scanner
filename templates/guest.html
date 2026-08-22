@@ -36,35 +36,46 @@
 
         <!-- Dashboard Stats Cards -->
         <div class="row g-3 mb-4">
-            <div class="col-12 col-md-4">
-                <div class="card border-0 shadow-sm rounded-4 bg-success text-white p-3">
-                    <div class="d-flex align-items-center">
-                        <div class="fs-1 me-3 opacity-75"><i class="bi bi-check-circle-fill"></i></div>
-                        <div>
-                            <div class="text-uppercase small fw-semibold opacity-75">Students Entered</div>
-                            <div id="statCheckedIn" class="display-6 fw-bold">0</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="card border-0 shadow-sm rounded-4 bg-primary text-white p-3">
                     <div class="d-flex align-items-center">
                         <div class="fs-1 me-3 opacity-75"><i class="bi bi-people-fill"></i></div>
                         <div>
-                            <div class="text-uppercase small fw-semibold opacity-75">Total Registered</div>
-                            <div id="statTotal" class="display-6 fw-bold">0</div>
+                            <div class="text-uppercase small fw-semibold opacity-75">Registered Students</div>
+                            <div id="statRegistered" class="display-6 fw-bold">0</div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 bg-success text-white p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="fs-1 me-3 opacity-75"><i class="bi bi-door-open-fill"></i></div>
+                        <div>
+                            <div class="text-uppercase small fw-semibold opacity-75">Currently Inside</div>
+                            <div id="statInside" class="display-6 fw-bold">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm rounded-4 bg-info text-white p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="fs-1 me-3 opacity-75"><i class="bi bi-box-arrow-right"></i></div>
+                        <div>
+                            <div class="text-uppercase small fw-semibold opacity-75">Exited Event</div>
+                            <div id="statExited" class="display-6 fw-bold">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
                 <div class="card border-0 shadow-sm rounded-4 bg-warning text-dark p-3">
                     <div class="d-flex align-items-center">
-                        <div class="fs-1 me-3 opacity-75"><i class="bi bi-hourglass-split"></i></div>
+                        <div class="fs-1 me-3 opacity-75"><i class="bi bi-clock-history"></i></div>
                         <div>
-                            <div class="text-uppercase small fw-semibold opacity-75">Pending Entry</div>
-                            <div id="statPending" class="display-6 fw-bold">0</div>
+                            <div class="text-uppercase small fw-semibold opacity-75">Not Entered</div>
+                            <div id="statNotEntered" class="display-6 fw-bold">0</div>
                         </div>
                     </div>
                 </div>
@@ -100,13 +111,13 @@
         <!-- Student Data Table Card -->
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-card-checklist me-2 text-primary"></i>Aarambham Student Registrations & Entry Log</h5>
+                <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-card-checklist me-2 text-primary"></i>Aarambham Attendance Log</h5>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="btn-group btn-group-sm" id="guestFilterGroup" role="group" aria-label="Status Filter">
                         <button type="button" class="btn btn-dark active" data-filter="all">All</button>
-                        <button type="button" class="btn btn-outline-success" data-filter="registered">Registered</button>
-                        <button type="button" class="btn btn-outline-primary" data-filter="checked_in">Checked In</button>
-                        <button type="button" class="btn btn-outline-warning" data-filter="pending">Not Checked In</button>
+                        <button type="button" class="btn btn-outline-success" data-filter="inside">Inside</button>
+                        <button type="button" class="btn btn-outline-info" data-filter="exited">Exited</button>
+                        <button type="button" class="btn btn-outline-warning" data-filter="not_entered">Not Entered</button>
                     </div>
                     <span id="studentCountBadge" class="badge bg-secondary rounded-pill">0 Students</span>
                 </div>
@@ -118,13 +129,14 @@
                             <th class="ps-4">#</th>
                             <th>Roll Number</th>
                             <th>Student Name</th>
-                            <th class="text-center">Entry Status</th>
-                            <th class="pe-4 text-end">Check-In Time</th>
+                            <th>Entry Time</th>
+                            <th>Exit Time</th>
+                            <th class="text-center">Status</th>
                         </tr>
                     </thead>
                     <tbody id="guestStudentsBody">
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
+                            <td colspan="6" class="text-center py-5 text-muted">
                                 <div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading live entry data...
                             </td>
                         </tr>
@@ -154,14 +166,10 @@
             document.querySelectorAll('#guestFilterGroup button').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     document.querySelectorAll('#guestFilterGroup button').forEach(b => {
-                        b.classList.remove('active', 'btn-dark', 'btn-success', 'btn-primary', 'btn-warning');
-                        b.classList.add(`btn-outline-${b.dataset.filter === 'registered' ? 'success' : b.dataset.filter === 'checked_in' ? 'primary' : b.dataset.filter === 'pending' ? 'warning' : 'secondary'}`);
+                        b.className = `btn btn-outline-secondary btn-sm`;
                     });
                     const target = e.target;
-                    target.classList.add('active');
-                    target.classList.remove(`btn-outline-${target.dataset.filter === 'registered' ? 'success' : target.dataset.filter === 'checked_in' ? 'primary' : target.dataset.filter === 'pending' ? 'warning' : 'secondary'}`);
-                    target.classList.add(target.dataset.filter === 'all' ? 'btn-dark' : target.dataset.filter === 'registered' ? 'btn-success' : target.dataset.filter === 'checked_in' ? 'btn-primary' : 'btn-warning');
-                    
+                    target.className = `btn btn-dark btn-sm active`;
                     currentFilter = target.dataset.filter;
                     loadEnteredStudents(document.getElementById('searchInput').value, currentFilter);
                 });
@@ -197,9 +205,10 @@
                     return;
                 }
                 const stats = await res.json();
-                document.getElementById('statCheckedIn').textContent = (stats.checked_in || 0).toLocaleString();
-                document.getElementById('statTotal').textContent = (stats.total || 0).toLocaleString();
-                document.getElementById('statPending').textContent = (stats.pending || 0).toLocaleString();
+                document.getElementById('statRegistered').textContent = (stats.registered || 0).toLocaleString();
+                document.getElementById('statInside').textContent = (stats.inside || 0).toLocaleString();
+                document.getElementById('statExited').textContent = (stats.exited || 0).toLocaleString();
+                document.getElementById('statNotEntered').textContent = (stats.not_entered || 0).toLocaleString();
             } catch (e) {
                 console.error("Failed to load guest stats", e);
             }
@@ -223,30 +232,38 @@
                 if (students.length === 0) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-muted">
-                                No student records found matching your filter or search criteria.
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                No student records found matching filter.
                             </td>
                         </tr>`;
                     return;
                 }
 
-                tbody.innerHTML = students.map((s, idx) => `
-                    <tr>
-                        <td class="ps-4 text-muted small">${idx + 1}</td>
-                        <td class="fw-bold font-monospace text-primary">${s.roll_number}</td>
-                        <td class="fw-semibold">${s.name}</td>
-                        <td class="text-center">
-                            ${s.checked_in 
-                                ? '<span class="badge bg-success text-white rounded-pill px-3 py-1"><i class="bi bi-check-circle-fill me-1"></i> CHECKED IN</span>' 
-                                : '<span class="badge bg-warning text-dark rounded-pill px-3 py-1"><i class="bi bi-hourglass-split me-1"></i> NOT CHECKED IN</span>'}
-                        </td>
-                        <td class="pe-4 text-end fw-semibold text-dark">${s.checked_in_at || '—'}</td>
-                    </tr>
-                `).join('');
+                tbody.innerHTML = students.map((s, idx) => {
+                    let statusBadge = '';
+                    if (s.status === 'INSIDE') {
+                        statusBadge = '<span class="badge bg-success text-white rounded-pill px-3"><i class="bi bi-door-open-fill me-1"></i> INSIDE</span>';
+                    } else if (s.status === 'EXITED') {
+                        statusBadge = '<span class="badge bg-info text-white rounded-pill px-3"><i class="bi bi-box-arrow-right me-1"></i> EXITED</span>';
+                    } else {
+                        statusBadge = '<span class="badge bg-secondary text-white rounded-pill px-3"><i class="bi bi-dash-circle me-1"></i> NOT ENTERED</span>';
+                    }
+
+                    return `
+                        <tr>
+                            <td class="ps-4 text-muted small">${idx + 1}</td>
+                            <td class="fw-bold font-monospace text-primary">${s.roll_number}</td>
+                            <td class="fw-semibold">${s.name}</td>
+                            <td class="small text-muted">${s.entry_time || '—'}</td>
+                            <td class="small text-muted">${s.exit_time || '—'}</td>
+                            <td class="text-center">${statusBadge}</td>
+                        </tr>
+                    `;
+                }).join('');
             } catch (e) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-danger">Failed to load registration log.</td>
+                        <td colspan="6" class="text-center py-4 text-danger">Failed to load attendance log.</td>
                     </tr>`;
             }
         }

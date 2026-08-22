@@ -1,5 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, inspect, text
 from app.database import Base
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -36,15 +36,55 @@ class Student(Base):
     name = Column(String(100), nullable=False)
     token = Column(String(100), nullable=True, default="")
     registered = Column(Boolean, default=True, nullable=False)
-    checked_in = Column(Boolean, default=False, nullable=False)
-    checked_in_at = Column(DateTime(timezone=True), nullable=True)
+    entry_time = Column(DateTime(timezone=True), nullable=True)
+    exit_time = Column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def status(self) -> str:
+        if not self.registered:
+            return "NOT REGISTERED"
+        if self.entry_time is None:
+            return "NOT ENTERED"
+        elif self.exit_time is None:
+            return "INSIDE"
+        else:
+            return "EXITED"
+
+    @property
+    def checked_in(self) -> bool:
+        return self.entry_time is not None
 
     def to_dict(self):
         return {
             "id": self.id,
             "roll_number": self.roll_number,
+            "roll_no": self.roll_number,
             "name": self.name,
             "registered": self.registered,
-            "checked_in": self.checked_in,
-            "checked_in_at": parse_and_format_ist(self.checked_in_at)
+            "entry_time": parse_and_format_ist(self.entry_time),
+            "exit_time": parse_and_format_ist(self.exit_time),
+            "status": self.status,
+            "checked_in": self.entry_time is not None,
+            "checked_in_at": parse_and_format_ist(self.entry_time)
         }
+
+def ensure_db_schema_migrated(engine):
+    """
+    Safely migrates existing database schema to include entry_time and exit_time columns.
+    """
+    try:
+        inspector = inspect(engine)
+        if "registrations" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("registrations")]
+            with engine.begin() as conn:
+                if "entry_time" not in columns:
+                    conn.execute(text("ALTER TABLE registrations ADD COLUMN entry_time TIMESTAMP;"))
+                if "exit_time" not in columns:
+                    conn.execute(text("ALTER TABLE registrations ADD COLUMN exit_time TIMESTAMP;"))
+                if "checked_in_at" in columns and "checked_in" in columns:
+                    try:
+                        conn.execute(text("UPDATE registrations SET entry_time = checked_in_at WHERE checked_in = TRUE AND entry_time IS NULL;"))
+                    except Exception:
+                        pass
+    except Exception as e:
+        print(f"Migration notice: {e}")

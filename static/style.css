@@ -134,6 +134,13 @@ body {
     border: 2px solid #34d399 !important;
 }
 
+.result-card.status-exit {
+    background: linear-gradient(145deg, #1d4ed8, #1e40af) !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 25px rgba(29, 78, 216, 0.5) !important;
+    border: 2px solid #60a5fa !important;
+}
+
 .result-card.status-already-used {
     background: linear-gradient(145deg, #b45309, #78350f) !important;
     color: #ffffff !important;

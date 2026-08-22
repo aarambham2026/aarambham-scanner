@@ -113,49 +113,71 @@ function renderResult(data) {
     const detailsBox = document.getElementById('studentDetailsBox');
     const nameEl = document.getElementById('studentName');
     const rollEl = document.getElementById('studentRoll');
-    const timeCol = document.getElementById('usageTimeCol');
-    const timeEl = document.getElementById('usageTime');
+    const entryTimeEl = document.getElementById('entryTime');
+    const exitTimeEl = document.getElementById('exitTime');
+    const entryTimeCol = document.getElementById('entryTimeCol');
+    const exitTimeCol = document.getElementById('exitTimeCol');
 
     // Reset card classes
     card.className = "card result-card border-0 shadow-lg rounded-4 my-3";
     detailsBox.classList.remove('d-none');
-    timeCol.classList.remove('d-none');
+    if (entryTimeCol) entryTimeCol.classList.remove('d-none');
+    if (exitTimeCol) exitTimeCol.classList.remove('d-none');
+
+    const s = data.student || {};
+    const name = data.name || s.name;
+    const roll = data.roll_no || data.roll_number || s.roll_number || s.roll_no;
+    const entryTime = data.entry_time || s.entry_time;
+    const exitTime = data.exit_time || s.exit_time;
 
     switch (data.status) {
+        case 'entry_recorded':
         case 'ALLOWED':
             card.classList.add('status-allowed');
             statusIcon.innerHTML = '<i class="bi bi-check-circle-fill text-white"></i>';
-            statusText.textContent = "✅ REGISTERED — ENTRY ALLOWED";
-            nameEl.textContent = data.student.name;
-            rollEl.textContent = data.student.roll_number;
-            timeEl.textContent = data.student.checked_in_at || data.student.used_at || "Just now";
+            statusText.textContent = "🟢 ENTRY RECORDED";
+            nameEl.textContent = name;
+            rollEl.textContent = roll;
+            if (entryTimeEl) entryTimeEl.textContent = entryTime || "Just now";
+            if (exitTimeEl) exitTimeEl.textContent = "—";
             playBeep('success');
             break;
 
+        case 'exit_recorded':
+            card.classList.add('status-exit');
+            statusIcon.innerHTML = '<i class="bi bi-box-arrow-right text-white"></i>';
+            statusText.textContent = "🔵 EXIT RECORDED";
+            nameEl.textContent = name;
+            rollEl.textContent = roll;
+            if (entryTimeEl) entryTimeEl.textContent = entryTime || "—";
+            if (exitTimeEl) exitTimeEl.textContent = exitTime || "Just now";
+            playBeep('success');
+            break;
+
+        case 'already_exited':
         case 'ALREADY_CHECKED_IN':
         case 'ALREADY_USED':
             card.classList.add('status-already-used');
             statusIcon.innerHTML = '<i class="bi bi-exclamation-circle-fill text-white"></i>';
-            statusText.textContent = "⚠️ ALREADY CHECKED IN";
-            nameEl.textContent = data.student.name;
-            rollEl.textContent = data.student.roll_number;
-            timeEl.textContent = data.student.checked_in_at || data.student.used_at || "Previously checked in";
+            statusText.textContent = "⚠️ ALREADY EXITED";
+            nameEl.textContent = name;
+            rollEl.textContent = roll;
+            if (entryTimeEl) entryTimeEl.textContent = entryTime || "—";
+            if (exitTimeEl) exitTimeEl.textContent = exitTime || "Exited";
             playBeep('error');
             break;
 
+        case 'not_registered':
         case 'NOT_REGISTERED':
         case 'NOT_ELIGIBLE':
             card.classList.add('status-not-eligible');
             statusIcon.innerHTML = '<i class="bi bi-x-circle-fill text-white"></i>';
             statusText.textContent = "❌ NOT REGISTERED";
-            if (data.student) {
-                nameEl.textContent = data.student.name;
-                rollEl.textContent = data.student.roll_number;
-                timeCol.classList.add('d-none');
-            } else if (data.roll_number) {
-                nameEl.textContent = "Unregistered Student";
-                rollEl.textContent = data.roll_number;
-                timeCol.classList.add('d-none');
+            if (name || roll) {
+                nameEl.textContent = name || "Unregistered Student";
+                rollEl.textContent = roll || "—";
+                if (entryTimeCol) entryTimeCol.classList.add('d-none');
+                if (exitTimeCol) exitTimeCol.classList.add('d-none');
             } else {
                 detailsBox.classList.add('d-none');
             }
@@ -163,6 +185,7 @@ function renderResult(data) {
             break;
 
         case 'INVALID_QR':
+        case 'invalid_qr':
             card.classList.add('status-invalid-qr');
             statusIcon.innerHTML = '<i class="bi bi-qr-code text-white"></i>';
             statusText.textContent = "❌ INVALID QR";
