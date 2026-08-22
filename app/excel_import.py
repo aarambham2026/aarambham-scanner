@@ -7,7 +7,7 @@ from app.models import Student
 def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = False) -> dict:
     """
     Parses uploaded Excel file and upserts/replaces students in registrations table.
-    Expected columns: Roll No (or Roll Number), Name, Registered (optional, YES/NO/True/False)
+    Supports 2-column format: Roll No | Paid (Y/N) or standard formats with headers.
     """
     if replace_all:
         db.query(Student).delete()
@@ -16,63 +16,73 @@ def parse_and_import_excel(db: Session, file_bytes: bytes, replace_all: bool = F
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
     sheet = wb.active
 
-    headers = []
-    for cell in sheet[1]:
-        headers.append(str(cell.value or "").strip().lower())
+    rows = list(sheet.iter_rows(values_only=True))
+    if not rows:
+        return {"success": False, "message": "Uploaded Excel file is empty."}
 
-    col_map = {}
-    for idx, h in enumerate(headers):
-        if h in ["roll no", "roll number", "rollno", "roll_number", "roll"]:
-            col_map["roll_number"] = idx
+    # Inspect first row to detect headers
+    first_row = [str(cell or "").strip() for cell in rows[0]]
+    first_row_lower = [c.lower() for c in first_row]
+
+    has_header = False
+    roll_col = 0
+    paid_col = 1
+    name_col = None
+
+    for idx, h in enumerate(first_row_lower):
+        if h in ["roll no", "roll number", "rollno", "roll_number", "roll", "roll_no"]:
+            roll_col = idx
+            has_header = True
+        elif h in ["paid", "registered", "registration", "is_registered", "status", "opted", "lunch opted"]:
+            paid_col = idx
+            has_header = True
         elif h in ["name", "student name", "student_name"]:
-            col_map["name"] = idx
-        elif h in ["registered", "registration", "is_registered", "lunch opted", "lunch_opted", "opted"]:
-            col_map["registered"] = idx
+            name_col = idx
+            has_header = True
 
-    required_cols = ["roll_number", "name"]
-    missing = [c for c in required_cols if c not in col_map]
-    if missing:
-        return {
-            "success": False,
-            "message": f"Missing required columns in Excel: {', '.join(missing)}. Found: {headers}"
-        }
-
-    has_registered_col = "registered" in col_map
+    data_rows = rows[1:] if has_header else rows
 
     added = 0
     updated = 0
     errors = 0
+    seen_rolls = set()
 
-    for row in sheet.iter_rows(min_row=2, values_only=True):
-        if not any(row):
+    for row in data_rows:
+        if not row or not any(row):
             continue
 
         try:
-            roll = str(row[col_map["roll_number"]] or "").strip()
-            name = str(row[col_map["name"]] or "").strip()
-
-            if not roll or not name:
+            roll = str(row[roll_col] if roll_col < len(row) else "").strip()
+            if not roll:
                 errors += 1
                 continue
 
-            registered = True
-            if has_registered_col and row[col_map["registered"]] is not None:
-                val = str(row[col_map["registered"]]).strip().upper()
-                registered = val in ["YES", "Y", "TRUE", "1", "REGISTERED"]
+            # Prevent duplicate processing within same file
+            if roll.upper() in seen_rolls:
+                continue
+            seen_rolls.add(roll.upper())
+
+            name = str(row[name_col]).strip() if (name_col is not None and name_col < len(row) and row[name_col]) else roll
+
+            paid_val = ""
+            if paid_col < len(row) and row[paid_col] is not None:
+                paid_val = str(row[paid_col]).strip().upper()
+
+            is_paid = paid_val in ["Y", "YES", "TRUE", "1", "REGISTERED", "PAID"]
 
             existing = db.query(Student).filter(Student.roll_number == roll).first()
 
             if existing:
                 existing.name = name
                 existing.token = roll
-                existing.registered = registered
+                existing.registered = is_paid
                 updated += 1
             else:
                 student = Student(
                     roll_number=roll,
                     name=name,
                     token=roll,
-                    registered=registered,
+                    registered=is_paid,
                     entry_time=None,
                     exit_time=None
                 )

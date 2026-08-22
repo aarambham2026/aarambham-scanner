@@ -28,16 +28,29 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
 
     # Step 1: Check if student exists by Roll Number
     student = db.query(Student).filter(Student.roll_number == clean_roll).first()
-    if not student or not student.registered:
+    
+    if not student:
         return {
             "status": "not_registered",
-            "name": student.name if student else None,
+            "message": "NOT REGISTERED",
             "roll_no": clean_roll,
             "roll_number": clean_roll,
+            "paid": "NO",
             "entry_time": None,
             "exit_time": None,
-            "message": "Student not registered for Aarambham event.",
-            "student": student.to_dict() if student else None
+            "student": None
+        }
+
+    if not student.registered:
+        return {
+            "status": "unpaid",
+            "message": "UNPAID / NOT ELIGIBLE",
+            "roll_no": clean_roll,
+            "roll_number": clean_roll,
+            "paid": "NO",
+            "entry_time": None,
+            "exit_time": None,
+            "student": student.to_dict()
         }
 
     now_ist = datetime.now(IST)
