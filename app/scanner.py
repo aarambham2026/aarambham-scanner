@@ -59,12 +59,13 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
         db.commit()
 
         if row_entry:
-            formatted_entry = parse_and_format_ist(row_entry.entry_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+            formatted_entry = parse_and_format_ist(row_entry.entry_time, time_only=True) or now_ist.strftime("%I:%M:%S %p")
             return {
                 "status": "entry_recorded",
                 "name": row_entry.name,
                 "roll_no": row_entry.roll_number,
                 "roll_number": row_entry.roll_number,
+                "paid": "YES",
                 "entry_time": formatted_entry,
                 "exit_time": None,
                 "message": "ENTRY RECORDED",
@@ -72,6 +73,7 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
                     "roll_number": row_entry.roll_number,
                     "roll_no": row_entry.roll_number,
                     "name": row_entry.name,
+                    "paid": "YES",
                     "entry_time": formatted_entry,
                     "exit_time": None,
                     "status": "INSIDE"
@@ -91,12 +93,13 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
 
         if updated_entry > 0:
             db.refresh(student)
-            formatted_entry = parse_and_format_ist(student.entry_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+            formatted_entry = parse_and_format_ist(student.entry_time, time_only=True) or now_ist.strftime("%I:%M:%S %p")
             return {
                 "status": "entry_recorded",
                 "name": student.name,
                 "roll_no": student.roll_number,
                 "roll_number": student.roll_number,
+                "paid": "YES",
                 "entry_time": formatted_entry,
                 "exit_time": None,
                 "message": "ENTRY RECORDED",
@@ -119,13 +122,14 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
         db.commit()
 
         if row_exit:
-            formatted_entry = parse_and_format_ist(row_exit.entry_time)
-            formatted_exit = parse_and_format_ist(row_exit.exit_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+            formatted_entry = parse_and_format_ist(row_exit.entry_time, time_only=True) or "—"
+            formatted_exit = parse_and_format_ist(row_exit.exit_time, time_only=True) or now_ist.strftime("%I:%M:%S %p")
             return {
                 "status": "exit_recorded",
                 "name": row_exit.name,
                 "roll_no": row_exit.roll_number,
                 "roll_number": row_exit.roll_number,
+                "paid": "YES",
                 "entry_time": formatted_entry,
                 "exit_time": formatted_exit,
                 "message": "EXIT RECORDED",
@@ -133,6 +137,7 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
                     "roll_number": row_exit.roll_number,
                     "roll_no": row_exit.roll_number,
                     "name": row_exit.name,
+                    "paid": "YES",
                     "entry_time": formatted_entry,
                     "exit_time": formatted_exit,
                     "status": "EXITED"
@@ -152,13 +157,14 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
 
         if updated_exit > 0:
             db.refresh(student)
-            formatted_entry = parse_and_format_ist(student.entry_time)
-            formatted_exit = parse_and_format_ist(student.exit_time) or now_ist.strftime("%d %b %Y, %I:%M:%S %p IST")
+            formatted_entry = parse_and_format_ist(student.entry_time, time_only=True) or "—"
+            formatted_exit = parse_and_format_ist(student.exit_time, time_only=True) or now_ist.strftime("%I:%M:%S %p")
             return {
                 "status": "exit_recorded",
                 "name": student.name,
                 "roll_no": student.roll_number,
                 "roll_number": student.roll_number,
+                "paid": "YES",
                 "entry_time": formatted_entry,
                 "exit_time": formatted_exit,
                 "message": "EXIT RECORDED",
@@ -167,14 +173,15 @@ def verify_and_mark_event_entry(db: Session, roll_number: str) -> dict:
 
     # Step 4: ALREADY EXITED (entry_time IS NOT NULL AND exit_time IS NOT NULL)
     db.refresh(student)
-    formatted_entry = parse_and_format_ist(student.entry_time)
-    formatted_exit = parse_and_format_ist(student.exit_time)
+    formatted_entry = parse_and_format_ist(student.entry_time, time_only=True) or "—"
+    formatted_exit = parse_and_format_ist(student.exit_time, time_only=True) or "—"
 
     return {
         "status": "already_exited",
         "name": student.name,
         "roll_no": student.roll_number,
         "roll_number": student.roll_number,
+        "paid": "YES" if student.registered else "NO",
         "entry_time": formatted_entry,
         "exit_time": formatted_exit,
         "message": "ALREADY EXITED",

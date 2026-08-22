@@ -4,7 +4,7 @@ from app.database import Base
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-def parse_and_format_ist(val):
+def parse_and_format_ist(val, time_only: bool = False):
     if not val:
         return None
     dt = None
@@ -25,8 +25,11 @@ def parse_and_format_ist(val):
     if dt:
         if dt.tzinfo is not None:
             dt = dt.astimezone(IST)
+        if time_only:
+            return dt.strftime("%I:%M:%S %p")
         return dt.strftime("%d %b %Y, %I:%M:%S %p IST")
     return str(val)
+
 
 class Student(Base):
     __tablename__ = "registrations"
@@ -61,8 +64,11 @@ class Student(Base):
             "roll_no": self.roll_number,
             "name": self.name,
             "registered": self.registered,
+            "paid": "YES" if self.registered else "NO",
             "entry_time": parse_and_format_ist(self.entry_time),
             "exit_time": parse_and_format_ist(self.exit_time),
+            "entry_time_display": parse_and_format_ist(self.entry_time, time_only=True) or "—",
+            "exit_time_display": parse_and_format_ist(self.exit_time, time_only=True) or "—",
             "status": self.status,
             "checked_in": self.entry_time is not None,
             "checked_in_at": parse_and_format_ist(self.entry_time)
